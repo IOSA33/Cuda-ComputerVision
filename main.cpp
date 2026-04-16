@@ -6,7 +6,7 @@
 #include <chrono>
 #include <vector>
 
-void GaussianEdgeFilterWidth(int width, int height, int channels, unsigned char* data) {
+void GaussianEdgeFilter(int width, int height, int channels, unsigned char* data) {
     std::vector<unsigned char> source(data, data + (width * height * channels));
 
     for (size_t y { 0 }; y < height; ++y) {
@@ -32,10 +32,6 @@ void GaussianEdgeFilterWidth(int width, int height, int channels, unsigned char*
             }
         }
     }
-}
-
-void GaussianEdgeFilterRow(int width, int height, int channels, unsigned char* data) {
-    std::vector<unsigned char> source(data, data + (width * height * channels));
 
     for (size_t y { 1 }; y < height - 1; ++y) {
         for (size_t x { 0 }; x < width; ++x) {
@@ -62,32 +58,13 @@ void GaussianEdgeFilterRow(int width, int height, int channels, unsigned char* d
     }
 }
 
-
 void HandVision(int width, int height, int channels, unsigned char* data) {
     unsigned char colR{ 208 };
     unsigned char colG{ 138 };
     unsigned char colB{ 116 };
 
-    unsigned char tolerance { 20 };
+    unsigned char tolerance { 25 };
 
-    for (size_t y { 0 }; y < height; ++y) {
-        for (size_t x { 0 }; x < width; ++x) {
-            size_t index { (y * width + x) * channels };
-
-            if (std::abs(data[index + 0] - colR) <= tolerance && std::abs(data[index + 1] - colG) <= tolerance && std::abs(data[index + 2] - colB) <= tolerance) {
-                data[index + 0] = 255;
-                data[index + 1] = 255;
-                data[index + 2] = 255;
-            } else {
-                data[index + 0] = 0;
-                data[index + 1] = 0;
-                data[index + 2] = 0;
-            }
-        }
-    }
-}
-
-void calculateCentroid(int width, int height, int channels, unsigned char* data) {
     size_t sum_00 { 0 };
     size_t sum_10 { 0 };
     size_t sum_01 { 0 };
@@ -96,20 +73,27 @@ void calculateCentroid(int width, int height, int channels, unsigned char* data)
         for (size_t x { 0 }; x < width; ++x) {
             size_t index { (y * width + x) * channels };
 
-            if (data[index + 0] != 0) {
+            if (std::abs(data[index + 0] - colR) <= tolerance && std::abs(data[index + 1] - colG) <= tolerance && std::abs(data[index + 2] - colB) <= tolerance) {
+                data[index + 0] = 0;
+                data[index + 1] = 0;
+                data[index + 2] = 255;
                 ++sum_00;
                 sum_10 += x * 1;
                 sum_01 += y * 1;
+            } else {
+                data[index + 0] = 0;
+                data[index + 1] = 0;
+                data[index + 2] = 0;
             }
         }
     }
+
     size_t x_coord { sum_10 / sum_00 };
     size_t y_coord { sum_01 / sum_00 };
+    size_t index_centroid { (y_coord * width + x_coord) * channels };
 
-    size_t index_centroid { (y_coord * width + x_coord) * channels }; 
-
-    int r = 1100;
-    int d = 1350;
+    int r { 1100 };
+    int d { 1350 };
 
     for (int dx = -r; dx <= r; ++dx) {
         int nx = x_coord + dx;
@@ -151,17 +135,14 @@ void calculateCentroid(int width, int height, int channels, unsigned char* data)
 int main() {
     const auto start { std::chrono::high_resolution_clock::now() };
     int width, height, channels;
-    unsigned char* data { stbi_load("../photos/sample1.jpg", &width, &height, &channels, 0) };
+    unsigned char* data { stbi_load("../photos/sample2_hand.jpg", &width, &height, &channels, 0) };
     if (!data) {
         std::cout << "Failed to load INPUT image\n";
         return 1;
     }
 
-    // GaussianEdgeFilterWidth(width, height, channels, data);
-    // GaussianEdgeFilterRow(width, height, channels, data);
-
+    // GaussianEdgeFilter(width, height, channels, data);
     HandVision(width, height, channels, data);
-    calculateCentroid(width, height, channels, data);
 
     if (!stbi_write_jpg("../photos/sample_output.jpg", width, height, channels, data, 100)) {
         std::cout << "Failed to write OUTPUT image\n";
